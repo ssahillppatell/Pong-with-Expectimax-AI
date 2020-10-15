@@ -1,0 +1,17 @@
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: content-box;
+}
+
+body {
+	display: grid;
+	height: 100vh;
+	place-items: center;
+
+	canvas {
+		border: 2px solid black;
+		width: 800px;
+		height: 450px;
+	}
+}
