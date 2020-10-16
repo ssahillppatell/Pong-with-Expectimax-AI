@@ -1,2 +1,4 @@
+import { Pong } from "./Pong.js";
+
 const canvas = document.getElementById('pong') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d');
+const pong = new Pong(canvas);
