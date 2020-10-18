@@ -1,8 +1,11 @@
 import { Ball } from "./Ball.js";
 import { Player } from "./Player.js";
 import { Rect } from "./Rect.js";
+import { Vector } from "./Vector.js";
 
 enum PlayerType {HUMAN, AI};
+let crosssedMid = false;
+let hitPosition: number;
 
 export class Pong {
 	private _canvas: HTMLCanvasElement;
@@ -28,7 +31,7 @@ export class Pong {
 		});
 
 		let lastTime: number;
-		const callback = (ms: number) => {
+		const callback = (ms: number): void => {
 			if(lastTime) {
 				this.updateCanvas((ms - lastTime) / 1000);
 			}
@@ -39,15 +42,24 @@ export class Pong {
 		this.reset();
 	}
 
-	collide (player: Player, ball: Ball) {
+	collide (player: Player, ball: Ball): void {
 		if(player.getLeft() < ball.getRight() && player.getRight() > ball.getLeft() && player.getTop() < ball.getBottom() && player.getBottom() > ball.getTop()) {
 			ball.getVel().setX(-ball.getVel().getX());
+			if(ball.getVel().getX() > 0) {
+				crosssedMid = false;
+			}
+			this.ball.getVel().setX(this.ball.getVel().getX() * 1.1);
+			this.players[PlayerType.AI].setPaddleSpeed(this.players[PlayerType.AI].getPaddleSpeed() * 1.05);
+			console.log("Ball Vx, AI Paddle Vy:", this.ball.getVel().getX(), this.players[PlayerType.AI].getPaddleSpeed());
 		}
 	}
 
 	draw (): void {
 		this._ctx.fillStyle = '#fff';
 		this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+		
+		this._ctx.fillStyle = '#000';
+		this._ctx.fillRect(this._canvas.width / 2, 0, 1, this._canvas.height);
 
 		this.drawRect(this.ball);
 		this.players.forEach((player: Player) => this.drawRect(player));
@@ -58,20 +70,25 @@ export class Pong {
 		this._ctx.fillRect(rect.getLeft(), rect.getTop(), rect.getSize().getX(), rect.getSize().getY());
 	}
 
-	reset () {
+	reset (): void {
 		this.ball.getPos().setX(this._canvas.width / 2);
 		this.ball.getPos().setY(this._canvas.height / 2);
 
 		this.ball.getVel().setX(0);
 		this.ball.getVel().setY(0);
+
+		this.players.forEach((player) => {
+			player.getPos().setY(this._canvas.height / 2);
+			player.setPaddleSpeed(150);
+		});
 	}
 
-	start () {
+	start (): void {
 		if(this.ball.getVel().getX() == 0 && this.ball.getVel().getY() == 0) {
 			this.ball.getVel().setX(-200);
 
 			let yDirection = Math.random() - 0.5;
-			let yVelocity = 150 + Math.abs(yDirection * 100);
+			let yVelocity = 150 + Math.abs(yDirection * 50);
 			this.ball.getVel().setY(yDirection > 0 ? yVelocity : -yVelocity);
 		}
 	}
@@ -80,12 +97,13 @@ export class Pong {
 		this.ball.getPos().setX(this.ball.getPos().getX() + (this.ball.getVel().getX() * dt));
 		this.ball.getPos().setY(this.ball.getPos().getY() + (this.ball.getVel().getY() * dt));
 	
+		// Points Logic
 		if(this.ball.getLeft() < 0 || this.ball.getRight() > this._canvas.width) {
 			let playerId;
 			if(this.ball.getVel().getX() < 0) {
 				playerId = PlayerType.AI;
 			} else {
-				playerId = PlayerType.HUMAN;	
+				playerId = PlayerType.HUMAN;
 			}
 
 			this.players[playerId].setScore(1);
@@ -93,11 +111,32 @@ export class Pong {
 			this.reset();
 		}
 	
+		// Deflect ball from canvas
 		if(this.ball.getTop() < 0 || this.ball.getBottom() > this._canvas.height) {
 			this.ball.getVel().setY(-this.ball.getVel().getY());
 		}
 
-		this.players[PlayerType.AI].getPos().setY(this.ball.getPos().getY());
+		// Logic
+		if(this.ball.getPos().getX() >= this._canvas.width / 2 && this.ball.getVel().getX() > 0) {
+			const timeToHit = 380 / this.ball.getVel().getX();
+
+			if(!crosssedMid) {
+				hitPosition = this.ball.getPos().getY() + timeToHit * this.ball.getVel().getY();
+				hitPosition = hitPosition > 0 ? hitPosition > 450 ? 900 - hitPosition : hitPosition : Math.abs(hitPosition);
+				console.log("Expected Hit position: ", hitPosition)
+				crosssedMid = true;				
+			}
+
+			if(Math.abs(hitPosition! - (this.players[PlayerType.AI].getTop() + this.players[PlayerType.AI].getBottom()) / 2) > 3) {	
+				if(hitPosition! <= this.players[PlayerType.AI].getPos().getY()) {
+					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() -  this.players[PlayerType.AI].getPaddleSpeed() * dt);
+				} else if(hitPosition! >= this.players[PlayerType.AI].getPos().getY()) {
+					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() +  this.players[PlayerType.AI].getPaddleSpeed() * dt);
+				}
+			}
+		}
+				
+		// Collision check
 		this.players.forEach((player: Player) => {
 			return this.collide(player, this.ball);
 		});
