@@ -50,7 +50,39 @@ export class Pong {
 			}
 			this.ball.getVel().setX(this.ball.getVel().getX() * 1.1);
 			this.players[PlayerType.AI].setPaddleSpeed(this.players[PlayerType.AI].getPaddleSpeed() * 1.05);
-			console.log("Ball Vx, AI Paddle Vy:", this.ball.getVel().getX(), this.players[PlayerType.AI].getPaddleSpeed());
+
+			if(ball.getVel().getX() > 0) {
+				let newBallVy: number = 0;
+				console.log("dist: ", this.players[PlayerType.HUMAN].getTop() - this.ball.getTop());
+				if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() <= 8) {
+					newBallVy = this.ball.getVel().getY() - Math.abs(this.ball.getVel().getY()) * ((Math.random() + 0.5)/10);
+					console.log("Collision Type: ", -1);
+				} else if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() >= 18) {
+					newBallVy = this.ball.getVel().getY() + Math.abs(this.ball.getVel().getY()) * ((Math.random() + 0.5)/10);
+					console.log("Collision Type: ", 1);
+				} else {
+					newBallVy = this.ball.getVel().getY() * 1.03;
+					console.log("Collision Type: ", 0);
+				}
+				
+				this.ball.getVel().setY(newBallVy);
+			}
+
+			if(ball.getVel().getX() < 0) {
+				let newBallVy = 0;
+				if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() <= 8) {
+					newBallVy = this.ball.getVel().getY() + Math.abs(this.ball.getVel().getY()) * (Math.random()/10);
+					console.log("Collision Type: ", -1);
+				} else if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() >= 18) {
+					newBallVy = this.ball.getVel().getY() - Math.abs(this.ball.getVel().getY()) * (Math.random()/10);
+					console.log("Collision Type: ", 1);
+				} else {
+					console.log("Collision Type: ", 0);
+					newBallVy = this.ball.getVel().getY() * 1.03;
+				}
+
+				this.ball.getVel().setY(newBallVy);
+			}
 		}
 	}
 
@@ -107,8 +139,9 @@ export class Pong {
 			}
 
 			this.players[playerId].setScore(1);
+			console.clear();
 			console.log(playerId ? "AI Won" : "Human Won");
-			this.reset();
+			this.reset();			
 		}
 	
 		// Deflect ball from canvas
@@ -140,6 +173,8 @@ export class Pong {
 		this.players.forEach((player: Player) => {
 			return this.collide(player, this.ball);
 		});
+
+		// console.log(this.ball.getVel().getY())
 
 		this.draw();
 	}
