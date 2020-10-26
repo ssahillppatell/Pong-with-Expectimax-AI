@@ -2,10 +2,19 @@ import { Ball } from "./Ball.js";
 import { Player } from "./Player.js";
 import { Rect } from "./Rect.js";
 import { Vector } from "./Vector.js";
+import { MyNode } from './MyNode.js';
 
 enum PlayerType {HUMAN, AI};
-let crosssedMid = false;
+let crosssedMid: boolean = false;
 let hitPosition: number;
+let expectedHumanPos: number;
+let isCalculated: boolean = false;
+let isHit: boolean = false;
+let bestShot: number;
+
+const evaluationFunc = (humanYPos: number, nextExpectedPos: number): number => {
+	return Math.abs(nextExpectedPos - humanYPos);
+}
 
 export class Pong {
 	private _canvas: HTMLCanvasElement;
@@ -44,6 +53,7 @@ export class Pong {
 
 	collide (player: Player, ball: Ball): void {
 		if(player.getLeft() < ball.getRight() && player.getRight() > ball.getLeft() && player.getTop() < ball.getBottom() && player.getBottom() > ball.getTop()) {
+			console.log("Hit Pos:", this.ball.getPos().getY())
 			ball.getVel().setX(-ball.getVel().getX());
 			if(ball.getVel().getX() > 0) {
 				crosssedMid = false;
@@ -51,6 +61,7 @@ export class Pong {
 			this.ball.getVel().setX(this.ball.getVel().getX() * 1.1);
 			this.players[PlayerType.AI].setPaddleSpeed(this.players[PlayerType.AI].getPaddleSpeed() * 1.05);
 
+			// Randomness Added
 			if(ball.getVel().getX() > 0) {
 				let newBallVy: number = 0;
 				console.log("dist: ", this.players[PlayerType.HUMAN].getTop() - this.ball.getTop());
@@ -66,14 +77,15 @@ export class Pong {
 				}
 				
 				this.ball.getVel().setY(newBallVy);
+				isCalculated = false;
 			}
 
 			if(ball.getVel().getX() < 0) {
 				let newBallVy = 0;
-				if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() <= 8) {
+				if(this.ball.getTop() - this.players[PlayerType.AI].getTop() <= 8) {
 					newBallVy = this.ball.getVel().getY() + Math.abs(this.ball.getVel().getY()) * (Math.random()/10);
 					console.log("Collision Type: ", -1);
-				} else if(this.ball.getTop() - this.players[PlayerType.HUMAN].getTop() >= 18) {
+				} else if(this.ball.getTop() - this.players[PlayerType.AI].getTop() >= 18) {
 					newBallVy = this.ball.getVel().getY() - Math.abs(this.ball.getVel().getY()) * (Math.random()/10);
 					console.log("Collision Type: ", 1);
 				} else {
@@ -82,6 +94,7 @@ export class Pong {
 				}
 
 				this.ball.getVel().setY(newBallVy);
+				isHit = false;
 			}
 		}
 	}
@@ -116,6 +129,7 @@ export class Pong {
 	}
 
 	start (): void {
+		console.clear();
 		if(this.ball.getVel().getX() == 0 && this.ball.getVel().getY() == 0) {
 			this.ball.getVel().setX(-200);
 
@@ -139,7 +153,6 @@ export class Pong {
 			}
 
 			this.players[playerId].setScore(1);
-			console.clear();
 			console.log(playerId ? "AI Won" : "Human Won");
 			this.reset();			
 		}
@@ -151,21 +164,55 @@ export class Pong {
 
 		// Logic
 		if(this.ball.getPos().getX() >= this._canvas.width / 2 && this.ball.getVel().getX() > 0) {
-			const timeToHit = 380 / this.ball.getVel().getX();
+			const timeToHit = 375 / this.ball.getVel().getX();
+			let humanPos: Vector;
 
 			if(!crosssedMid) {
 				hitPosition = this.ball.getPos().getY() + timeToHit * this.ball.getVel().getY();
 				hitPosition = hitPosition > 0 ? hitPosition > 450 ? 900 - hitPosition : hitPosition : Math.abs(hitPosition);
-				console.log("Expected Hit position: ", hitPosition)
+				console.log("Expected Hit position: ", hitPosition);
+
+				humanPos = this.players[PlayerType.HUMAN].getPos();
+
 				crosssedMid = true;				
 			}
 
-			if(Math.abs(hitPosition! - (this.players[PlayerType.AI].getTop() + this.players[PlayerType.AI].getBottom()) / 2) > 3) {	
+			if(Math.abs(hitPosition! - (this.players[PlayerType.AI].getTop() + this.players[PlayerType.AI].getBottom()) / 2) > 9) {	
 				if(hitPosition! <= this.players[PlayerType.AI].getPos().getY()) {
 					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() -  this.players[PlayerType.AI].getPaddleSpeed() * dt);
 				} else if(hitPosition! >= this.players[PlayerType.AI].getPos().getY()) {
 					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() +  this.players[PlayerType.AI].getPaddleSpeed() * dt);
 				}
+			}
+			
+			let myNode: MyNode = new MyNode(0);
+
+			if(crosssedMid && this.ball.getVel().getX() > 0 && !isCalculated) {
+				const newTimeToHit: number = 750 / this.ball.getVel().getX();
+				expectedHumanPos = newTimeToHit * this.ball.getVel().getY();
+				expectedHumanPos = expectedHumanPos > 0 ? expectedHumanPos > 450 ? 900 - expectedHumanPos : expectedHumanPos : Math.abs(expectedHumanPos);
+				myNode.addChild(new MyNode(evaluationFunc(humanPos!.getY(), expectedHumanPos)));
+				
+				expectedHumanPos = newTimeToHit * (this.ball.getVel().getY() + Math.abs(this.ball.getVel().getY()) * (Math.random()/10));
+				expectedHumanPos = expectedHumanPos > 0 ? expectedHumanPos > 450 ? 900 - expectedHumanPos : expectedHumanPos : Math.abs(expectedHumanPos);
+				myNode.addChild(new MyNode(evaluationFunc(humanPos!.getY(), expectedHumanPos)));
+
+				expectedHumanPos = newTimeToHit * (this.ball.getVel().getY() - Math.abs(this.ball.getVel().getY()) * (Math.random()/10));
+				expectedHumanPos = expectedHumanPos > 0 ? expectedHumanPos > 450 ? 900 - expectedHumanPos : expectedHumanPos : Math.abs(expectedHumanPos);
+				myNode.addChild(new MyNode(evaluationFunc(humanPos!.getY(), expectedHumanPos)));
+
+				bestShot = myNode.getMax().index;
+				isCalculated = true;
+			}
+
+			if(crosssedMid && 775 - this.ball.getPos().getX() >= 3 && 775 - this.ball.getPos().getX() <= 12 && !isHit) {
+				if(bestShot == 1) {
+					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() + 8);
+				} else if(bestShot == 2) {
+					this.players[PlayerType.AI].getPos().setY(this.players[PlayerType.AI].getPos().getY() - 8);
+				}
+
+				isHit = true;
 			}
 		}
 				
@@ -173,8 +220,6 @@ export class Pong {
 		this.players.forEach((player: Player) => {
 			return this.collide(player, this.ball);
 		});
-
-		// console.log(this.ball.getVel().getY())
 
 		this.draw();
 	}
